@@ -271,7 +271,7 @@ export function renderAiAnalyzer() {
           'X-Title': 'FiCo Document Analyzer',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.0-flash-001',
+          model: 'google/gemini-2.5-flash:standard',
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user', content: userMessage },

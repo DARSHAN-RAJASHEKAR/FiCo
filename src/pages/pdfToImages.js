@@ -29,6 +29,12 @@ export function renderPdfToImages() {
       <div id="dropzone-mount"></div>
       <div id="file-info" class="file-list" style="display:none"></div>
       <div id="pages-preview" class="pdf-pages-preview" style="display:none"></div>
+      <div id="page-range-selector" style="display:none; margin: 15px 0; gap: 10px; align-items: center; justify-content: center;">
+        <label>From page:</label>
+        <input type="number" id="page-start" min="1" value="1" style="width: 70px; padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text);">
+        <label>to:</label>
+        <input type="number" id="page-end" min="1" value="1" style="width: 70px; padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text);">
+      </div>
       <button id="convert-btn" class="btn btn-primary btn-large btn-convert" style="display:none" disabled>
         Extract Images
       </button>
@@ -43,6 +49,9 @@ export function renderPdfToImages() {
   const dropzoneMount = page.querySelector('#dropzone-mount');
   const fileInfo = page.querySelector('#file-info');
   const pagesPreview = page.querySelector('#pages-preview');
+  const pageRangeSelector = page.querySelector('#page-range-selector');
+  const pageStartInput = page.querySelector('#page-start');
+  const pageEndInput = page.querySelector('#page-end');
   const convertBtn = page.querySelector('#convert-btn');
   const progressArea = page.querySelector('#progress-area');
   const progressFill = page.querySelector('#progress-fill');
@@ -85,6 +94,7 @@ export function renderPdfToImages() {
       pdfFile = null;
       fileInfo.style.display = 'none';
       pagesPreview.style.display = 'none';
+      pageRangeSelector.style.display = 'none';
       convertBtn.style.display = 'none';
     });
 
@@ -122,9 +132,41 @@ export function renderPdfToImages() {
         pagesPreview.appendChild(more);
       }
 
+      if (totalPages > 1) {
+        pageRangeSelector.style.display = 'flex';
+        pageStartInput.max = totalPages;
+        pageEndInput.max = totalPages;
+        pageStartInput.value = 1;
+        pageEndInput.value = totalPages;
+        
+        const updateBtn = () => {
+          let s = parseInt(pageStartInput.value) || 1;
+          let e = parseInt(pageEndInput.value) || totalPages;
+          
+          if (s < 1) s = 1;
+          if (s > totalPages) s = totalPages;
+          if (e > totalPages) e = totalPages;
+          
+          // Ensure "to" cannot go below "from"
+          pageEndInput.min = s;
+          if (e < s) {
+            e = s;
+            pageEndInput.value = s;
+          }
+
+          const c = Math.max(0, e - s + 1);
+          convertBtn.textContent = `Extract ${c} Page${c !== 1 ? 's' : ''} as Images`;
+        };
+        pageStartInput.oninput = updateBtn;
+        pageEndInput.oninput = updateBtn;
+        updateBtn();
+      } else {
+        pageRangeSelector.style.display = 'none';
+        convertBtn.textContent = `Extract 1 Page as Image`;
+      }
+
       convertBtn.style.display = 'flex';
       convertBtn.disabled = false;
-      convertBtn.textContent = `Extract ${totalPages} Page${totalPages > 1 ? 's' : ''} as Images`;
     } catch (err) {
       console.error(err);
       showToast('Failed to load PDF preview', 'error');
@@ -142,12 +184,31 @@ export function renderPdfToImages() {
     try {
       const arrayBuffer = await pdfFile.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const zip = new JSZip();
       const totalPages = pdf.numPages;
+      let startPage = 1;
+      let endPage = totalPages;
+      
+      if (totalPages > 1) {
+        startPage = parseInt(pageStartInput.value) || 1;
+        endPage = parseInt(pageEndInput.value) || totalPages;
+      }
+      
+      const safeStart = Math.max(1, Math.min(startPage, totalPages));
+      const safeEnd = Math.max(safeStart, Math.min(endPage, totalPages));
+      const pagesToExtract = safeEnd - safeStart + 1;
+      
+      if (pagesToExtract <= 0) {
+        showToast('Invalid page range', 'error');
+        return;
+      }
 
-      for (let i = 1; i <= totalPages; i++) {
-        progressFill.style.width = `${(i / totalPages) * 100}%`;
-        progressText.textContent = `Rendering page ${i} of ${totalPages}...`;
+      const zip = pagesToExtract > 1 ? new JSZip() : null; // Only create zip if > 1 page
+      let singleImageBlob = null; // Store the blob if there's only 1 page
+
+      for (let i = safeStart; i <= safeEnd; i++) {
+        const currentIndex = i - safeStart + 1;
+        progressFill.style.width = `${(currentIndex / pagesToExtract) * 100}%`;
+        progressText.textContent = `Rendering page ${i} of ${safeEnd}...`;
 
         const pg = await pdf.getPage(i);
         const viewport = pg.getViewport({ scale: 2.0 }); // High quality
@@ -158,24 +219,45 @@ export function renderPdfToImages() {
         await pg.render({ canvasContext: ctx, viewport }).promise;
 
         const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-        zip.file(`page-${String(i).padStart(3, '0')}.png`, blob);
+        
+        if (pagesToExtract === 1) {
+          singleImageBlob = blob;
+        } else {
+          zip.file(`page-${String(i).padStart(3, '0')}.png`, blob);
+        }
       }
 
-      progressText.textContent = 'Creating ZIP archive...';
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      const zipName = pdfFile.name.replace('.pdf', '') + '-images.zip';
-
       result.style.display = 'block';
-      result.innerHTML = `
-        <h3>✓ Images Extracted!</h3>
-        <p>${totalPages} page${totalPages > 1 ? 's' : ''} • ${formatBytes(zipBlob.size)}</p>
-        <button class="btn btn-primary" id="download-result">⬇ Download ZIP</button>
-      `;
-      page.querySelector('#download-result').addEventListener('click', () => {
-        saveAs(zipBlob, zipName);
-      });
 
-      showToast(`${totalPages} pages extracted successfully!`);
+      if (pagesToExtract === 1) {
+        // Single Page Logic
+        const imageName = pdfFile.name.replace('.pdf', '') + `-page-${safeStart}.png`;
+        
+        result.innerHTML = `
+          <h3>✓ Image Extracted!</h3>
+          <p>Page ${safeStart} • ${formatBytes(singleImageBlob.size)}</p>
+          <button class="btn btn-primary" id="download-result">⬇ Download PNG</button>
+        `;
+        page.querySelector('#download-result').addEventListener('click', () => {
+          saveAs(singleImageBlob, imageName);
+        });
+      } else {
+        // Multi-Page ZIP Logic
+        progressText.textContent = 'Creating ZIP archive...';
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const zipName = pdfFile.name.replace('.pdf', '') + `-pages-${safeStart}-${safeEnd}.zip`;
+
+        result.innerHTML = `
+          <h3>✓ Images Extracted!</h3>
+          <p>${pagesToExtract} pages • ${formatBytes(zipBlob.size)}</p>
+          <button class="btn btn-primary" id="download-result">⬇ Download ZIP</button>
+        `;
+        page.querySelector('#download-result').addEventListener('click', () => {
+          saveAs(zipBlob, zipName);
+        });
+      }
+
+      showToast(`${pagesToExtract} page${pagesToExtract > 1 ? 's' : ''} extracted successfully!`);
     } catch (err) {
       console.error(err);
       showToast('Failed to extract images: ' + err.message, 'error');
