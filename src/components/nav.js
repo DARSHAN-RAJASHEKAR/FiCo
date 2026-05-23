@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { path: '/compress-image', label: '🗜️ Compress' },
   { path: '/resize-image', label: '📐 Resize' },
   { path: '/ai-analyzer', label: '🤖 AI Analyzer' },
+  { path: '/doc-to-pdf', label: '📝 Docs → PDF' },
 ];
 
 export function renderNav() {

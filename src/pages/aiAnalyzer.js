@@ -241,7 +241,7 @@ export function renderAiAnalyzer() {
 
   analyzeBtn.addEventListener('click', async () => {
     if (!OPENROUTER_KEY || !extractedText) {
-      showToast('API key not configured. Set VITE_OPENROUTER_KEY in .env file.', 'error');
+      showToast('API key not configured.', 'error');
       return;
     }
 

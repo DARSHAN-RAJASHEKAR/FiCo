@@ -6,6 +6,7 @@ import { renderUnlockPdf } from './pages/unlockPdf.js';
 import { renderCompressImage } from './pages/compressImage.js';
 import { renderResizeImage } from './pages/resizeImage.js';
 import { renderAiAnalyzer } from './pages/aiAnalyzer.js';
+import { renderDocToPdf } from './pages/docToPdf.js';
 
 const app = document.querySelector('#app');
 
@@ -47,6 +48,11 @@ function renderHome() {
         <h3>AI Doc Analyzer</h3>
         <p>Summarize contracts & flag hidden clauses before you sign</p>
       </a>
+      <a href="/doc-to-pdf" class="tool-link-card" id="tool-doc-to-pdf">
+        <div class="card-icon">📝</div>
+        <h3>Docs → PDF</h3>
+        <p>Convert Word documents & text files to PDF instantly</p>
+      </a>
     </div>
   `;
   return page;
@@ -73,6 +79,7 @@ const routes = {
   '/compress-image': renderCompressImage,
   '/resize-image': renderResizeImage,
   '/ai-analyzer': renderAiAnalyzer,
+  '/doc-to-pdf': renderDocToPdf,
 };
 
 function render() {
@@ -89,7 +96,7 @@ function render() {
 
   const footer = document.createElement('footer');
   footer.className = 'footer';
-  footer.innerHTML = 'FiCo — All processing happens locally in your browser. No data is sent anywhere.<br>Built using Antigravity, powered by Gemini 2.5 Flash.';
+  footer.innerHTML = 'FiCo — All processing happens locally in your browser. No data is sent anywhere.<br>Built using <a href="https://antigravity.google/" target="_blank" rel="noopener noreferrer">Antigravity</a>, powered by Gemini 3.1 Pro and Cluade Opus 4.6';
   app.appendChild(footer);
 }
 
