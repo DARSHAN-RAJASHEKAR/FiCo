@@ -1,4 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import JSZip from 'jszip';
 import { createDropzone } from '../components/dropzone.js';
 import { showToast } from '../components/toast.js';
 
@@ -8,8 +9,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString();
 
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const OPENROUTER_KEY = import.meta.env.VITE_OPENROUTER_KEY;
+const ANALYZE_URL = '/api/analyze';
 
 const SYSTEM_PROMPT = `You are an expert legal document analyst. When given a document, you must:
 
@@ -34,11 +34,11 @@ function formatBytes(bytes) {
   return (bytes / 1048576).toFixed(1) + ' MB';
 }
 
-export function renderAiAnalyzer() {
-  let uploadedFile = null;
-  let extractedText = '';
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
-  const PASSCODE = import.meta.env.VITE_AI_PASSCODE;
+export function renderAiAnalyzer() {
+  let extractedText = '';
+  let imageData = null; // { base64, mimeType } for vision mode
 
   const page = document.createElement('div');
   page.innerHTML = `
@@ -47,20 +47,7 @@ export function renderAiAnalyzer() {
       <p>Upload a contract or T&C — AI will summarize key points and flag hidden clauses</p>
     </div>
 
-    <div id="passcode-gate" class="tool-card" style="text-align:center;padding:var(--space-3xl)">
-      <div style="font-size:48px;margin-bottom:var(--space-lg)">🔒</div>
-      <h3 style="margin-bottom:var(--space-sm)">Enter Passcode</h3>
-      <p style="color:var(--text-muted);font-size:var(--text-sm);margin-bottom:var(--space-lg)">This tool requires a 4-digit passcode to access</p>
-      <div class="passcode-inputs">
-        <input type="tel" maxlength="1" class="passcode-digit" data-index="0" autocomplete="off" />
-        <input type="tel" maxlength="1" class="passcode-digit" data-index="1" autocomplete="off" />
-        <input type="tel" maxlength="1" class="passcode-digit" data-index="2" autocomplete="off" />
-        <input type="tel" maxlength="1" class="passcode-digit" data-index="3" autocomplete="off" />
-      </div>
-      <p id="passcode-error" style="color:var(--error);font-size:var(--text-sm);margin-top:var(--space-md);display:none">Incorrect passcode</p>
-    </div>
-
-    <div id="analyzer-content" style="display:none">
+    <div id="analyzer-content">
       <div class="tool-card">
         <div id="dropzone-mount"></div>
         <div id="file-info" class="file-list" style="display:none"></div>
@@ -97,67 +84,24 @@ export function renderAiAnalyzer() {
   const progressFill = page.querySelector('#progress-fill');
   const progressText = page.querySelector('#progress-text');
   const result = page.querySelector('#result');
-  const passcodeGate = page.querySelector('#passcode-gate');
-  const analyzerContent = page.querySelector('#analyzer-content');
-  const passcodeError = page.querySelector('#passcode-error');
-  const digits = page.querySelectorAll('.passcode-digit');
-
-  // Passcode logic
-  digits[0].focus();
-
-  digits.forEach((input, i) => {
-    input.addEventListener('input', () => {
-      input.value = input.value.replace(/[^0-9]/g, '');
-      if (input.value && i < 3) digits[i + 1].focus();
-      checkPasscode();
-    });
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Backspace' && !input.value && i > 0) {
-        digits[i - 1].focus();
-      }
-    });
-  });
-
-  function checkPasscode() {
-    const entered = Array.from(digits).map(d => d.value).join('');
-    if (entered.length === 4) {
-      if (entered === PASSCODE) {
-        passcodeGate.style.display = 'none';
-        analyzerContent.style.display = 'block';
-      } else {
-        passcodeError.style.display = 'block';
-        digits.forEach(d => {
-          d.value = '';
-          d.style.borderColor = 'var(--error)';
-        });
-        digits[0].focus();
-        setTimeout(() => {
-          passcodeError.style.display = 'none';
-          digits.forEach(d => d.style.borderColor = '');
-        }, 1500);
-      }
-    }
-  }
-
   const dropzone = createDropzone({
-    accept: 'application/pdf,.pdf,.txt,.doc,.docx,text/plain',
+    accept: 'application/pdf,.pdf,.txt,.doc,.docx,text/plain,image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif',
     multiple: false,
     icon: '🔍',
     title: 'Drop your document here',
-    subtitle: 'PDF or text file',
+    subtitle: 'PDF, DOCX, TXT or Image',
     onFiles: handleFile,
   });
   dropzoneMount.appendChild(dropzone);
 
   function updateAnalyzeButton() {
-    analyzeBtn.disabled = extractedText.length === 0;
+    analyzeBtn.disabled = !extractedText && !imageData;
   }
 
   async function handleFile(files) {
     const file = files[0];
     if (!file) return;
 
-    uploadedFile = file;
     result.style.display = 'none';
 
     fileInfo.style.display = 'flex';
@@ -165,7 +109,7 @@ export function renderAiAnalyzer() {
       <div class="file-item">
         <div class="file-item-thumb" style="display:flex;align-items:center;justify-content:center;font-size:24px">📄</div>
         <div class="file-item-info">
-          <div class="file-item-name">${file.name}</div>
+          <div class="file-item-name">${escapeHtml(file.name)}</div>
           <div class="file-item-size">${formatBytes(file.size)}</div>
         </div>
         <button class="file-item-remove" id="remove-file">✕</button>
@@ -173,8 +117,8 @@ export function renderAiAnalyzer() {
     `;
 
     page.querySelector('#remove-file').addEventListener('click', () => {
-      uploadedFile = null;
       extractedText = '';
+      imageData = null;
       fileInfo.style.display = 'none';
       textPreview.style.display = 'none';
       customQuerySection.style.display = 'none';
@@ -182,31 +126,52 @@ export function renderAiAnalyzer() {
       result.style.display = 'none';
     });
 
-    // Extract text
+    // Extract content
     try {
-      if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-        extractedText = await extractPdfText(file);
-      } else {
-        extractedText = await file.text();
-      }
+      if (IMAGE_TYPES.includes(file.type)) {
+        // Vision mode — compress and store as base64
+        imageData = await compressImage(file);
+        extractedText = '';
 
-      if (!extractedText.trim()) {
-        showToast('Could not extract text from this document. It might be a scanned image.', 'error');
-        return;
-      }
-
-      // Show text preview
-      const previewChars = extractedText.slice(0, 500);
-      textPreview.style.display = 'block';
-      textPreview.innerHTML = `
-        <div class="text-preview-box">
-          <div class="text-preview-header">
-            <span>📝 Extracted Text</span>
-            <span class="text-preview-count">${extractedText.length.toLocaleString()} characters</span>
+        textPreview.style.display = 'block';
+        textPreview.innerHTML = `
+          <div class="text-preview-box">
+            <div class="text-preview-header">
+              <span>🖼️ Image ready for vision analysis</span>
+              <span class="text-preview-count">${formatBytes(Math.round(imageData.base64.length * 0.75))}</span>
+            </div>
+            <img src="data:${imageData.mimeType};base64,${imageData.base64}"
+              style="max-width:100%;max-height:200px;object-fit:contain;margin-top:8px;border-radius:6px;display:block" />
           </div>
-          <div class="text-preview-content">${escapeHtml(previewChars)}${extractedText.length > 500 ? '...' : ''}</div>
-        </div>
-      `;
+        `;
+      } else {
+        // Text extraction mode
+        imageData = null;
+        if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+          extractedText = await extractPdfText(file);
+        } else if (file.name.endsWith('.docx')) {
+          extractedText = await extractDocxText(file);
+        } else {
+          extractedText = await file.text();
+        }
+
+        if (!extractedText.trim()) {
+          showToast('Could not extract text from this document.', 'error');
+          return;
+        }
+
+        const previewChars = extractedText.slice(0, 500);
+        textPreview.style.display = 'block';
+        textPreview.innerHTML = `
+          <div class="text-preview-box">
+            <div class="text-preview-header">
+              <span>📝 Extracted Text</span>
+              <span class="text-preview-count">${extractedText.length.toLocaleString()} characters</span>
+            </div>
+            <div class="text-preview-content">${escapeHtml(previewChars)}${extractedText.length > 500 ? '...' : ''}</div>
+          </div>
+        `;
+      }
 
       customQuerySection.style.display = 'block';
       analyzeBtn.style.display = 'flex';
@@ -233,6 +198,54 @@ export function renderAiAnalyzer() {
     return fullText.trim();
   }
 
+  async function extractDocxText(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(arrayBuffer);
+
+    // word/document.xml holds the main body text
+    const xmlFile = zip.file('word/document.xml');
+    if (!xmlFile) throw new Error('Invalid .docx file — word/document.xml not found');
+
+    const xml = await xmlFile.async('string');
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xml, 'application/xml');
+
+    // Each <w:p> is a paragraph; <w:t> nodes inside hold the text
+    const paragraphs = Array.from(doc.getElementsByTagNameNS('*', 'p'));
+    return paragraphs
+      .map(p => {
+        const textNodes = Array.from(p.getElementsByTagNameNS('*', 't'));
+        return textNodes.map(t => t.textContent).join('');
+      })
+      .filter(line => line.trim())
+      .join('\n');
+  }
+
+  function compressImage(file, maxPx = 1536, quality = 0.82) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let { width, height } = img;
+        if (width > maxPx || height > maxPx) {
+          const scale = maxPx / Math.max(width, height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        const mimeType = 'image/jpeg';
+        const dataUrl = canvas.toDataURL(mimeType, quality);
+        resolve({ base64: dataUrl.split(',')[1], mimeType });
+      };
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = url;
+    });
+  }
+
   function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
@@ -240,8 +253,8 @@ export function renderAiAnalyzer() {
   }
 
   analyzeBtn.addEventListener('click', async () => {
-    if (!OPENROUTER_KEY || !extractedText) {
-      showToast('API key not configured.', 'error');
+    if (!extractedText && !imageData) {
+      showToast('Please upload a document first.', 'error');
       return;
     }
 
@@ -253,23 +266,30 @@ export function renderAiAnalyzer() {
     progressText.textContent = 'Sending document to AI...';
 
     const userQuery = customQuery.value.trim();
-    let userMessage = `Here is the document to analyze:\n\n---\n${extractedText}\n---`;
-    if (userQuery) {
-      userMessage += `\n\nThe user also has a specific question: ${userQuery}`;
+
+    // Build user message — multimodal for images, plain text otherwise
+    let userMessage;
+    if (imageData) {
+      const textPart = userQuery
+        ? `Analyze this document image.\n\nThe user also has a specific question: ${userQuery}`
+        : 'Analyze this document image.';
+      userMessage = [
+        { type: 'image_url', image_url: { url: `data:${imageData.mimeType};base64,${imageData.base64}` } },
+        { type: 'text', text: textPart },
+      ];
+    } else {
+      let text = `Here is the document to analyze:\n\n---\n${extractedText}\n---`;
+      if (userQuery) text += `\n\nThe user also has a specific question: ${userQuery}`;
+      userMessage = text;
     }
 
     try {
       progressFill.style.width = '40%';
       progressText.textContent = 'AI is reading the document...';
 
-      const response = await fetch(OPENROUTER_API_URL, {
+      const response = await fetch(ANALYZE_URL, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENROUTER_KEY}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.origin,
-          'X-Title': 'FiCo Document Analyzer',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'google/gemini-2.5-flash:standard',
           messages: [
@@ -303,10 +323,11 @@ export function renderAiAnalyzer() {
       result.innerHTML = `
         <div class="ai-result-header">
           <span>🤖 AI Analysis</span>
-          <span class="ai-model-badge">${data.model || 'gemini-2.0-flash'}</span>
+          <span class="ai-model-badge"></span>
         </div>
         <div class="ai-result-content">${renderMarkdown(aiResponse)}</div>
       `;
+      result.querySelector('.ai-model-badge').textContent = data.model || 'gemini-2.5-flash';
 
       showToast('Document analyzed successfully!');
     } catch (err) {
@@ -324,9 +345,9 @@ export function renderAiAnalyzer() {
     }
   });
 
-  // Simple markdown renderer
+  // Simple markdown renderer — escapes raw text first to prevent XSS
   function renderMarkdown(text) {
-    return text
+    return escapeHtml(text)
       // Headings
       .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
       .replace(/^### (.+)$/gm, '<h3>$1</h3>')
