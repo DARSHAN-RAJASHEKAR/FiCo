@@ -1,3 +1,8 @@
+// Drop-in replacement for src/main.js. The router, navigation, popstate
+// handler, and all page route mappings are identical to the original — only
+// the home (renderHome) and 404 (render404) markup change to match the
+// "Bureau Ledger" aesthetic. All backend logic in src/pages/* is untouched.
+
 import './style.css';
 import { renderNav } from './components/nav.js';
 import { renderImagesToPdf } from './pages/imagesToPdf.js';
@@ -10,49 +15,46 @@ import { renderDocToPdf } from './pages/docToPdf.js';
 
 const app = document.querySelector('#app');
 
+const TOOLS = [
+  { path: '/images-to-pdf',  icon: '🖼️', title: 'Images → PDF',     blurb: 'Merge JPG, PNG, or WebP images into a single PDF' },
+  { path: '/pdf-to-images',  icon: '📄', title: 'PDF → Images',     blurb: 'Extract every page of a PDF as high-quality PNGs' },
+  { path: '/unlock-pdf',     icon: '🔓', title: 'Unlock PDF',       blurb: 'Strip password protection from a PDF' },
+  { path: '/compress-image', icon: '🗜️', title: 'Compress Image',  blurb: 'Reduce file size while keeping great visual quality' },
+  { path: '/resize-image',   icon: '📐', title: 'Resize Image',     blurb: 'Change dimensions by pixels, percentage, or presets' },
+  { path: '/ai-analyzer',    icon: '🤖', title: 'AI Doc Analyzer',  blurb: 'Summarise contracts & flag hidden clauses before you sign' },
+  { path: '/doc-to-pdf',     icon: '📝', title: 'Docs → PDF',       blurb: 'Convert Word documents & text files to PDF instantly' },
+];
+
 function renderHome() {
   const page = document.createElement('div');
   page.innerHTML = `
-    <div class="page-header">
-      <h1>File Converter</h1>
-      <p>Fast, private, and free. Everything runs in your browser — no uploads to any server.</p>
+    <div class="page-header is-bureau">
+      <h1>The File Bureau.</h1>
+      <p>seven small instruments &middot; for keeping documents &middot; in good order</p>
+      <div class="bureau-stamp" aria-hidden="true">Local-Only &middot; Nothing Uploaded</div>
     </div>
-    <div class="tools-grid">
-      <a href="/images-to-pdf" class="tool-link-card" id="tool-images-to-pdf">
-        <div class="card-icon">🖼️</div>
-        <h3>Images → PDF</h3>
-        <p>Merge JPG, PNG, or WebP images into a single PDF document</p>
-      </a>
-      <a href="/pdf-to-images" class="tool-link-card" id="tool-pdf-to-images">
-        <div class="card-icon">📄</div>
-        <h3>PDF → Images</h3>
-        <p>Extract every page of a PDF as high-quality PNG images</p>
-      </a>
-      <a href="/unlock-pdf" class="tool-link-card" id="tool-unlock-pdf">
-        <div class="card-icon">🔓</div>
-        <h3>Unlock PDF</h3>
-        <p>Remove password protection and download an unlocked copy</p>
-      </a>
-      <a href="/compress-image" class="tool-link-card" id="tool-compress-image">
-        <div class="card-icon">🗜️</div>
-        <h3>Compress Image</h3>
-        <p>Reduce file size while keeping great visual quality</p>
-      </a>
-      <a href="/resize-image" class="tool-link-card" id="tool-resize-image">
-        <div class="card-icon">📐</div>
-        <h3>Resize Image</h3>
-        <p>Change dimensions by pixels, percentage, or presets</p>
-      </a>
-      <a href="/ai-analyzer" class="tool-link-card" id="tool-ai-analyzer">
-        <div class="card-icon">🤖</div>
-        <h3>AI Doc Analyzer</h3>
-        <p>Summarize contracts & flag hidden clauses before you sign</p>
-      </a>
-      <a href="/doc-to-pdf" class="tool-link-card" id="tool-doc-to-pdf">
-        <div class="card-icon">📝</div>
-        <h3>Docs → PDF</h3>
-        <p>Convert Word documents & text files to PDF instantly</p>
-      </a>
+    <aside class="bureau-slip" aria-label="Bureau information">
+      <div class="bureau-slip-head">
+        <span>SLIP &#8470; 001 &middot; INTAKE</span>
+        <span>00:00:00</span>
+      </div>
+      <div class="bureau-slip-row"><span class="k">how it works</span><span class="d"></span><span class="v">drop &middot; choose &middot; download</span></div>
+      <div class="bureau-slip-row"><span class="k">where files go</span><span class="d"></span><span class="v">your device &middot; nowhere else</span></div>
+    </aside>
+    <div class="bureau-slip-head register-head">
+      <span>SLIP &#8470; 002 &middot; REGISTER OF TOOLS</span>
+      <span>QTY &middot; 07</span>
+    </div>
+    <div class="tools-grid" aria-label="Register of tools">
+      ${TOOLS.map(t => `
+        <a href="${t.path}" class="tool-link-card" id="tool-${t.path.slice(1)}">
+          <span class="card-icon" aria-hidden="true">${t.icon}</span>
+          <div>
+            <h3>${t.title}</h3>
+            <p>${t.blurb}</p>
+          </div>
+        </a>
+      `).join('')}
     </div>
   `;
   return page;
@@ -61,11 +63,12 @@ function renderHome() {
 function render404() {
   const page = document.createElement('div');
   page.innerHTML = `
-    <div class="page-header" style="text-align:center; padding: 100px 20px;">
-      <div style="font-size: 80px; margin-bottom: 20px;">🕵️‍♂️</div>
-      <h1>404 - Page Not Found</h1>
-      <p>The page you're looking for doesn't exist or has moved.</p>
-      <a href="/" class="btn btn-primary" style="margin-top: 30px; display: inline-block;">Back to Home</a>
+    <div class="page-header">
+      <h1>404 · Slip not on file.</h1>
+      <p>The page you requested isn't in the bureau's registry. Try the ledger.</p>
+    </div>
+    <div style="text-align:center;margin-top:32px">
+      <a href="/" class="btn btn-primary btn-large" style="display:inline-flex">▸ Back to Ledger</a>
     </div>
   `;
   return page;
@@ -96,7 +99,10 @@ function render() {
 
   const footer = document.createElement('footer');
   footer.className = 'footer';
-  footer.innerHTML = 'FiCo — All processing happens locally in your browser. No data is sent anywhere.<br>Built using <a href="https://antigravity.google/" target="_blank" rel="noopener noreferrer">Antigravity</a>, powered by Gemini 3.1 Pro and Cluade Opus 4.6';
+  footer.innerHTML = `
+    FiCo — all processing happens locally in your browser. No data is sent anywhere.<br/>
+    Built using <a href="https://antigravity.google/" target="_blank" rel="noopener noreferrer">Antigravity</a>, powered by Gemini 3.1 Pro and Claude Opus 4.6.
+  `;
   app.appendChild(footer);
 }
 

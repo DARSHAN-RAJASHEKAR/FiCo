@@ -1,12 +1,14 @@
+const ARR = '<span class="nav-arr">→</span>';
+
 const NAV_ITEMS = [
-  { path: '/', label: '🏠 Home' },
-  { path: '/images-to-pdf', label: '🖼️ Images → PDF' },
-  { path: '/pdf-to-images', label: '📄 PDF → Images' },
-  { path: '/unlock-pdf', label: '🔓 Unlock PDF' },
-  { path: '/compress-image', label: '🗜️ Compress' },
-  { path: '/resize-image', label: '📐 Resize' },
-  { path: '/ai-analyzer', label: '🤖 AI Analyzer' },
-  { path: '/doc-to-pdf', label: '📝 Docs → PDF' },
+  { path: '/',               label: 'Home' },
+  { path: '/images-to-pdf',  label: `IMG ${ARR} PDF` },
+  { path: '/pdf-to-images',  label: `PDF ${ARR} IMG` },
+  { path: '/unlock-pdf',     label: 'Unlock PDF' },
+  { path: '/compress-image', label: 'Compress' },
+  { path: '/resize-image',   label: 'Resize' },
+  { path: '/ai-analyzer',    label: 'AI Analyzer' },
+  { path: '/doc-to-pdf',     label: `Docs ${ARR} PDF` },
 ];
 
 export function renderNav() {
@@ -17,8 +19,7 @@ export function renderNav() {
   nav.innerHTML = `
     <div class="nav-inner">
       <a href="/" class="nav-brand">
-        <div class="logo-icon">⚡</div>
-        <span>FiCo</span>
+        <span>F<span class="brand-i">i</span>Co</span>
       </a>
       <div class="nav-links">
         ${NAV_ITEMS.map(item => `

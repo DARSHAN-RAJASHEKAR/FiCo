@@ -42,26 +42,38 @@ export function renderAiAnalyzer() {
 
   const page = document.createElement('div');
   page.innerHTML = `
-    <div class="page-header">
-      <h1>AI Document Analyzer</h1>
-      <p>Upload a contract or T&C — AI will summarize key points and flag hidden clauses</p>
+    <div class="page-header is-job-order">
+      <span class="form-no">Form No. 06</span>
+      <h1>AI Doc Analyzer.</h1>
     </div>
 
-    <div id="analyzer-content">
-      <div class="tool-card">
-        <div id="dropzone-mount"></div>
-        <div id="file-info" class="file-list" style="display:none"></div>
-        <div id="text-preview" style="display:none"></div>
+    <div class="tool-card">
+      <div id="dropzone-mount"></div>
 
-      <div id="custom-query-section" style="display:none">
-        <div class="query-group">
-          <label for="custom-query">Ask something specific <span style="color:var(--text-muted)">(optional)</span></label>
-          <textarea id="custom-query" rows="2" placeholder="e.g. What are the cancellation terms? Is there an auto-renewal clause?"></textarea>
+      <div id="file-list-section" style="display:none">
+        <div class="file-list" id="file-list">
+          <div class="bureau-slip-head">
+            <span>SLIP B · MATERIALS ENUMERATED</span>
+            <span id="slip-b-meta"></span>
+          </div>
+        </div>
+      </div>
+
+      <div id="options-section" style="display:none">
+        <div class="options-bar bureau-opts">
+          <div class="bureau-slip-head">
+            <span>SLIP C · QUERY</span>
+            <span>OPTIONAL</span>
+          </div>
+          <div class="opt-label" style="grid-column:1/-1;margin-bottom:4px">Specific question</div>
+          <textarea id="custom-query" rows="3"
+            placeholder="e.g. What are the cancellation terms? Is there an auto-renewal clause?"
+            class="bureau-textarea" style="grid-column:1/-1"></textarea>
         </div>
       </div>
 
       <button id="analyze-btn" class="btn btn-primary btn-large btn-convert" style="display:none" disabled>
-        🤖 Analyze Document
+        Analyse &amp; Report →
       </button>
 
       <div id="progress-area" style="display:none">
@@ -70,26 +82,27 @@ export function renderAiAnalyzer() {
       </div>
 
       <div id="result" class="ai-result" style="display:none"></div>
-      </div>
     </div>
   `;
 
-  const dropzoneMount = page.querySelector('#dropzone-mount');
-  const fileInfo = page.querySelector('#file-info');
-  const textPreview = page.querySelector('#text-preview');
-  const customQuerySection = page.querySelector('#custom-query-section');
-  const customQuery = page.querySelector('#custom-query');
-  const analyzeBtn = page.querySelector('#analyze-btn');
-  const progressArea = page.querySelector('#progress-area');
-  const progressFill = page.querySelector('#progress-fill');
-  const progressText = page.querySelector('#progress-text');
-  const result = page.querySelector('#result');
+  const dropzoneMount   = page.querySelector('#dropzone-mount');
+  const fileListSection = page.querySelector('#file-list-section');
+  const fileList        = page.querySelector('#file-list');
+  const slipBMeta       = page.querySelector('#slip-b-meta');
+  const optionsSection  = page.querySelector('#options-section');
+  const customQuery     = page.querySelector('#custom-query');
+  const analyzeBtn      = page.querySelector('#analyze-btn');
+  const progressArea    = page.querySelector('#progress-area');
+  const progressFill    = page.querySelector('#progress-fill');
+  const progressText    = page.querySelector('#progress-text');
+  const result          = page.querySelector('#result');
+
   const dropzone = createDropzone({
     accept: 'application/pdf,.pdf,.txt,.doc,.docx,text/plain,image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif',
     multiple: false,
     icon: '🔍',
-    title: 'Drop your document here',
-    subtitle: 'PDF, DOCX, TXT or Image',
+    title: 'Drop your document here.',
+    subtitle: 'accepts: pdf · docx · txt · jpg · png · webp',
     onFiles: handleFile,
   });
   dropzoneMount.appendChild(dropzone);
@@ -98,54 +111,56 @@ export function renderAiAnalyzer() {
     analyzeBtn.disabled = !extractedText && !imageData;
   }
 
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
   async function handleFile(files) {
     const file = files[0];
     if (!file) return;
 
     result.style.display = 'none';
 
-    fileInfo.style.display = 'flex';
-    fileInfo.innerHTML = `
-      <div class="file-item">
-        <div class="file-item-thumb" style="display:flex;align-items:center;justify-content:center;font-size:24px">📄</div>
-        <div class="file-item-info">
-          <div class="file-item-name">${escapeHtml(file.name)}</div>
-          <div class="file-item-size">${formatBytes(file.size)}</div>
-        </div>
-        <button class="file-item-remove" id="remove-file">✕</button>
+    // Build SLIP B row
+    const head = fileList.querySelector('.bureau-slip-head');
+    fileList.innerHTML = '';
+    fileList.appendChild(head);
+
+    const isImage = IMAGE_TYPES.includes(file.type);
+    const row = document.createElement('div');
+    row.className = 'file-item';
+    row.innerHTML = `
+      <div class="file-item-thumb" style="display:flex;align-items:center;justify-content:center;
+        font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--ink-2)">01</div>
+      <div class="file-item-info">
+        <div class="file-item-name">${escapeHtml(file.name)}</div>
+        <div class="file-item-size">${formatBytes(file.size)}</div>
       </div>
+      <button class="file-item-remove" id="remove-file" title="Remove">✕</button>
     `;
+    fileList.appendChild(row);
 
     page.querySelector('#remove-file').addEventListener('click', () => {
       extractedText = '';
       imageData = null;
-      fileInfo.style.display = 'none';
-      textPreview.style.display = 'none';
-      customQuerySection.style.display = 'none';
-      analyzeBtn.style.display = 'none';
-      result.style.display = 'none';
+      fileListSection.style.display = 'none';
+      optionsSection.style.display  = 'none';
+      analyzeBtn.style.display      = 'none';
+      result.style.display          = 'none';
     });
+
+    slipBMeta.textContent = `01 ITEM · ${formatBytes(file.size)}`;
+    fileListSection.style.display = 'block';
 
     // Extract content
     try {
-      if (IMAGE_TYPES.includes(file.type)) {
-        // Vision mode — compress and store as base64
+      if (isImage) {
         imageData = await compressImage(file);
         extractedText = '';
-
-        textPreview.style.display = 'block';
-        textPreview.innerHTML = `
-          <div class="text-preview-box">
-            <div class="text-preview-header">
-              <span>🖼️ Image ready for vision analysis</span>
-              <span class="text-preview-count">${formatBytes(Math.round(imageData.base64.length * 0.75))}</span>
-            </div>
-            <img src="data:${imageData.mimeType};base64,${imageData.base64}"
-              style="max-width:100%;max-height:200px;object-fit:contain;margin-top:8px;border-radius:6px;display:block" />
-          </div>
-        `;
+        slipBMeta.textContent = `01 ITEM · IMAGE · ${formatBytes(file.size)}`;
       } else {
-        // Text extraction mode
         imageData = null;
         if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
           extractedText = await extractPdfText(file);
@@ -160,21 +175,11 @@ export function renderAiAnalyzer() {
           return;
         }
 
-        const previewChars = extractedText.slice(0, 500);
-        textPreview.style.display = 'block';
-        textPreview.innerHTML = `
-          <div class="text-preview-box">
-            <div class="text-preview-header">
-              <span>📝 Extracted Text</span>
-              <span class="text-preview-count">${extractedText.length.toLocaleString()} characters</span>
-            </div>
-            <div class="text-preview-content">${escapeHtml(previewChars)}${extractedText.length > 500 ? '...' : ''}</div>
-          </div>
-        `;
+        slipBMeta.textContent = `01 ITEM · ${extractedText.length.toLocaleString()} chars`;
       }
 
-      customQuerySection.style.display = 'block';
-      analyzeBtn.style.display = 'flex';
+      optionsSection.style.display = 'block';
+      analyzeBtn.style.display     = 'flex';
       updateAnalyzeButton();
 
     } catch (err) {
@@ -202,7 +207,6 @@ export function renderAiAnalyzer() {
     const arrayBuffer = await file.arrayBuffer();
     const zip = await JSZip.loadAsync(arrayBuffer);
 
-    // word/document.xml holds the main body text
     const xmlFile = zip.file('word/document.xml');
     if (!xmlFile) throw new Error('Invalid .docx file — word/document.xml not found');
 
@@ -210,7 +214,6 @@ export function renderAiAnalyzer() {
     const parser = new DOMParser();
     const doc = parser.parseFromString(xml, 'application/xml');
 
-    // Each <w:p> is a paragraph; <w:t> nodes inside hold the text
     const paragraphs = Array.from(doc.getElementsByTagNameNS('*', 'p'));
     return paragraphs
       .map(p => {
@@ -230,26 +233,20 @@ export function renderAiAnalyzer() {
         let { width, height } = img;
         if (width > maxPx || height > maxPx) {
           const scale = maxPx / Math.max(width, height);
-          width = Math.round(width * scale);
+          width  = Math.round(width * scale);
           height = Math.round(height * scale);
         }
         const canvas = document.createElement('canvas');
-        canvas.width = width;
+        canvas.width  = width;
         canvas.height = height;
         canvas.getContext('2d').drawImage(img, 0, 0, width, height);
         const mimeType = 'image/jpeg';
-        const dataUrl = canvas.toDataURL(mimeType, quality);
+        const dataUrl  = canvas.toDataURL(mimeType, quality);
         resolve({ base64: dataUrl.split(',')[1], mimeType });
       };
       img.onerror = () => reject(new Error('Failed to load image'));
       img.src = url;
     });
-  }
-
-  function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
   }
 
   analyzeBtn.addEventListener('click', async () => {
@@ -259,7 +256,7 @@ export function renderAiAnalyzer() {
     }
 
     analyzeBtn.disabled = true;
-    analyzeBtn.innerHTML = '<span class="spinner"></span> Analyzing...';
+    analyzeBtn.innerHTML = '<span class="spinner"></span> Analysing...';
     progressArea.style.display = 'block';
     result.style.display = 'none';
     progressFill.style.width = '20%';
@@ -312,17 +309,14 @@ export function renderAiAnalyzer() {
       const data = await response.json();
       const aiResponse = data.choices?.[0]?.message?.content;
 
-      if (!aiResponse) {
-        throw new Error('Empty response from AI');
-      }
+      if (!aiResponse) throw new Error('Empty response from AI');
 
       progressFill.style.width = '100%';
 
-      // Render markdown-ish response
       result.style.display = 'block';
       result.innerHTML = `
         <div class="ai-result-header">
-          <span>🤖 AI Analysis</span>
+          <span>AI Analysis</span>
           <span class="ai-model-badge"></span>
         </div>
         <div class="ai-result-content">${renderMarkdown(aiResponse)}</div>
@@ -339,7 +333,7 @@ export function renderAiAnalyzer() {
       }
     } finally {
       analyzeBtn.disabled = false;
-      analyzeBtn.innerHTML = '🤖 Analyze Document';
+      analyzeBtn.innerHTML = 'Analyse &amp; Report →';
       progressArea.style.display = 'none';
       updateAnalyzeButton();
     }
@@ -348,27 +342,18 @@ export function renderAiAnalyzer() {
   // Simple markdown renderer — escapes raw text first to prevent XSS
   function renderMarkdown(text) {
     return escapeHtml(text)
-      // Headings
       .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
       .replace(/^### (.+)$/gm, '<h3>$1</h3>')
       .replace(/^## (.+)$/gm, '<h2>$1</h2>')
       .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-      // Bold
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      // Italic
       .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      // Bullet points
       .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
-      // Wrap consecutive <li> in <ul>
       .replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>')
-      // Paragraphs (double newlines)
       .replace(/\n\n/g, '</p><p>')
-      // Single newlines
       .replace(/\n/g, '<br>')
-      // Wrap in paragraph
       .replace(/^/, '<p>')
       .replace(/$/, '</p>')
-      // Clean up empty paragraphs
       .replace(/<p><\/p>/g, '')
       .replace(/<p><(h[1-4]|ul)/g, '<$1')
       .replace(/<\/(h[1-4]|ul)><\/p>/g, '</$1>');
