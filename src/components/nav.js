@@ -4,6 +4,8 @@ const NAV_ITEMS = [
   { path: '/',               label: 'Home' },
   { path: '/images-to-pdf',  label: `IMG ${ARR} PDF` },
   { path: '/pdf-to-images',  label: `PDF ${ARR} IMG` },
+  { path: '/merge-pdf',      label: 'Merge PDF' },
+  { path: '/split-pdf',      label: 'Split PDF' },
   { path: '/unlock-pdf',     label: 'Unlock PDF' },
   { path: '/compress-image', label: 'Compress' },
   { path: '/resize-image',   label: 'Resize' },

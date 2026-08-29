@@ -7,6 +7,8 @@ import './style.css';
 import { renderNav } from './components/nav.js';
 import { renderImagesToPdf } from './pages/imagesToPdf.js';
 import { renderPdfToImages } from './pages/pdfToImages.js';
+import { renderMergePdf } from './pages/mergePdf.js';
+import { renderSplitPdf } from './pages/splitPdf.js';
 import { renderUnlockPdf } from './pages/unlockPdf.js';
 import { renderCompressImage } from './pages/compressImage.js';
 import { renderResizeImage } from './pages/resizeImage.js';
@@ -18,6 +20,8 @@ const app = document.querySelector('#app');
 const TOOLS = [
   { path: '/images-to-pdf',  icon: '🖼️', title: 'Images → PDF',     blurb: 'Merge JPG, PNG, or WebP images into a single PDF' },
   { path: '/pdf-to-images',  icon: '📄', title: 'PDF → Images',     blurb: 'Extract every page of a PDF as high-quality PNGs' },
+  { path: '/merge-pdf',      icon: '📎', title: 'Merge PDF',        blurb: 'Combine multiple PDFs into one, in any order' },
+  { path: '/split-pdf',      icon: '✂️', title: 'Split PDF',        blurb: 'Extract page ranges or break a PDF into separate files' },
   { path: '/unlock-pdf',     icon: '🔓', title: 'Unlock PDF',       blurb: 'Strip password protection from a PDF' },
   { path: '/compress-image', icon: '🗜️', title: 'Compress Image',  blurb: 'Reduce file size while keeping great visual quality' },
   { path: '/resize-image',   icon: '📐', title: 'Resize Image',     blurb: 'Change dimensions by pixels, percentage, or presets' },
@@ -30,7 +34,7 @@ function renderHome() {
   page.innerHTML = `
     <div class="page-header is-bureau">
       <h1>The File Bureau.</h1>
-      <p>seven small instruments &middot; for keeping documents &middot; in good order</p>
+      <p>nine small instruments &middot; for keeping documents &middot; in good order</p>
       <div class="bureau-stamp" aria-hidden="true">Local-Only &middot; Nothing Uploaded</div>
     </div>
     <aside class="bureau-slip" aria-label="Bureau information">
@@ -43,7 +47,7 @@ function renderHome() {
     </aside>
     <div class="bureau-slip-head register-head">
       <span>SLIP &#8470; 002 &middot; REGISTER OF TOOLS</span>
-      <span>QTY &middot; 07</span>
+      <span>QTY &middot; ${String(TOOLS.length).padStart(2, '0')}</span>
     </div>
     <div class="tools-grid" aria-label="Register of tools">
       ${TOOLS.map(t => `
@@ -78,6 +82,8 @@ const routes = {
   '/': renderHome,
   '/images-to-pdf': renderImagesToPdf,
   '/pdf-to-images': renderPdfToImages,
+  '/merge-pdf': renderMergePdf,
+  '/split-pdf': renderSplitPdf,
   '/unlock-pdf': renderUnlockPdf,
   '/compress-image': renderCompressImage,
   '/resize-image': renderResizeImage,
@@ -85,9 +91,68 @@ const routes = {
   '/doc-to-pdf': renderDocToPdf,
 };
 
+const SITE_NAME = 'FiCo — Bureau of Small File Works';
+
+const ROUTE_META = {
+  '/': {
+    title: SITE_NAME,
+    description: 'A small bureau of nine file utilities. Convert, compress, merge, split, unlock, and analyse documents — entirely in your browser. Nothing is uploaded.',
+  },
+  '/images-to-pdf': {
+    title: `Images to PDF Converter — ${SITE_NAME}`,
+    description: 'Merge JPG, PNG, or WebP images into a single PDF, entirely in your browser. No uploads, no accounts — free and private.',
+  },
+  '/pdf-to-images': {
+    title: `PDF to Images Converter — ${SITE_NAME}`,
+    description: 'Extract every page of a PDF as high-quality PNG images, processed locally in your browser. Nothing is uploaded.',
+  },
+  '/merge-pdf': {
+    title: `Merge PDF Files — ${SITE_NAME}`,
+    description: 'Combine multiple PDFs into one document, in any order you choose. Fast, free, and processed entirely in your browser.',
+  },
+  '/split-pdf': {
+    title: `Split PDF — ${SITE_NAME}`,
+    description: 'Extract page ranges, split every N pages, or break a PDF into individual pages — all processed locally in your browser.',
+  },
+  '/unlock-pdf': {
+    title: `Unlock PDF — Remove Password — ${SITE_NAME}`,
+    description: 'Strip password protection from a PDF using its password, entirely in your browser. Nothing is uploaded to a server.',
+  },
+  '/compress-image': {
+    title: `Compress Image — ${SITE_NAME}`,
+    description: 'Reduce image file size while keeping great visual quality. Fast, free, browser-based image compression.',
+  },
+  '/resize-image': {
+    title: `Resize Image — ${SITE_NAME}`,
+    description: 'Change image dimensions by pixels, percentage, or common presets — instantly, in your browser.',
+  },
+  '/ai-analyzer': {
+    title: `AI Document Analyzer — ${SITE_NAME}`,
+    description: 'Summarise contracts and flag hidden clauses before you sign, powered by AI.',
+  },
+  '/doc-to-pdf': {
+    title: `Docs to PDF Converter — ${SITE_NAME}`,
+    description: 'Convert Word documents and text files to PDF instantly, right in your browser.',
+  },
+};
+
+const NOT_FOUND_META = {
+  title: `404 · Page Not Found — ${SITE_NAME}`,
+  description: 'The page you requested isn\'t in the bureau\'s registry.',
+};
+
+function updateMeta(path) {
+  const meta = ROUTE_META[path] || NOT_FOUND_META;
+  document.title = meta.title;
+  const descTag = document.querySelector('meta[name="description"]');
+  if (descTag) descTag.setAttribute('content', meta.description);
+}
+
 function render() {
   const path = window.location.pathname;
   const renderPage = routes[path] || render404;
+
+  updateMeta(path);
 
   app.innerHTML = '';
   app.appendChild(renderNav());

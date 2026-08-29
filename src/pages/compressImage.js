@@ -22,7 +22,7 @@ export function renderCompressImage() {
   const page = document.createElement('div');
   page.innerHTML = `
     <div class="page-header is-job-order">
-      <span class="form-no">Form No. 04</span>
+      <span class="form-no">Form No. 06</span>
       <h1>Compress Image.</h1>
     </div>
     <div class="tool-card">
@@ -95,11 +95,11 @@ export function renderCompressImage() {
   const results         = page.querySelector('#results');
 
   const dropzone = createDropzone({
-    accept: 'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp',
+    accept: 'image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif',
     multiple: true,
     icon: '🗜️',
     title: 'Drop images to compress.',
-    subtitle: 'accepts: jpg · png · webp',
+    subtitle: 'accepts: jpg · png · webp · heic',
     onFiles: addFiles,
   });
   dropzoneMount.appendChild(dropzone);
@@ -160,14 +160,34 @@ export function renderCompressImage() {
     compressBtn.style.display     = 'flex';
   }
 
-  function addFiles(newFiles) {
+  function isHeic(f) {
+    return f.type === 'image/heic' || f.type === 'image/heif' || /\.(heic|heif)$/i.test(f.name);
+  }
+
+  async function addFiles(newFiles) {
     const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    const valid = newFiles.filter(f => validTypes.includes(f.type));
-    if (!valid.length) {
-      showToast('Please select valid images (JPG, PNG, WebP)', 'error');
+    const converted = [];
+
+    for (const f of newFiles) {
+      if (validTypes.includes(f.type)) {
+        converted.push(f);
+      } else if (isHeic(f)) {
+        try {
+          const { heicTo } = await import('heic-to');
+          const jpgBlob = await heicTo({ blob: f, type: 'image/jpeg', quality: 0.92 });
+          converted.push(new File([jpgBlob], f.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' }));
+        } catch (err) {
+          console.error(err);
+          showToast(`Couldn't convert ${f.name}: ${err?.message || err}`, 'error');
+        }
+      }
+    }
+
+    if (!converted.length) {
+      showToast('Please select valid images (JPG, PNG, WebP, HEIC)', 'error');
       return;
     }
-    valid.forEach(file => files.push({ file }));
+    converted.forEach(file => files.push({ file }));
     renderFileList();
   }
 
