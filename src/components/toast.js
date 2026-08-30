@@ -16,10 +16,14 @@ export function showToast(message, type = 'success') {
 
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
-  toast.innerHTML = `
-    <span>${type === 'success' ? '✓' : '✕'}</span>
-    <span>${message}</span>
-  `;
+
+  const icon = document.createElement('span');
+  icon.textContent = type === 'success' ? '✓' : '✕';
+  const text = document.createElement('span');
+  text.textContent = message;
+
+  toast.appendChild(icon);
+  toast.appendChild(text);
 
   container.appendChild(toast);
 

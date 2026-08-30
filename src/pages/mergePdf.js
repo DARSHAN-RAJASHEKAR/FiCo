@@ -11,6 +11,12 @@ function formatBytes(bytes) {
 
 function formatNum(n) { return String(n).padStart(2, '0'); }
 
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 export function renderMergePdf() {
   let pdfs = []; // { file, pageCount }
 
@@ -126,7 +132,7 @@ export function renderMergePdf() {
           ${formatNum(i + 1)}
         </div>
         <div class="file-item-info">
-          <div class="file-item-name">${p.file.name}</div>
+          <div class="file-item-name">${escapeHtml(p.file.name)}</div>
           <div class="file-item-size">${p.pageCount} page${p.pageCount > 1 ? 's' : ''}</div>
         </div>
         <span style="font-family:var(--font-mono);font-size:12px;color:var(--ink-2);font-weight:600;flex-shrink:0">
